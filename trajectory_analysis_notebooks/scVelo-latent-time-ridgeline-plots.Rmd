@@ -1,0 +1,167 @@
+---
+title: "scVelo latent time lineage plots for integrated D7911 timecourse samples"
+author: Eric Wafula
+date: 2024
+output:   
+  html_notebook: 
+    toc: true
+    toc_float: true
+---
+
+## setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+set.seed(123)
+```
+
+## Libraries
+
+```{r library}
+# load libraries
+library(tidyverse)
+library(ggridges)
+library(ggplot2)
+```
+
+## Plot function
+
+```{r}
+plot_latent_time <- function(latent_time, cell_annotation) {
+  ggplot2::ggplot(latent_time, aes(x = latent_time, y = status, fill = status)) +
+    ggridges::stat_density_ridges(rel_min_height = 0.01, alpha = 0.7,
+                        quantile_lines = TRUE, quantiles = 2) +
+    ggplot2::ggtitle(cell_annotation) +
+    ggplot2::theme_set(theme_minimal()) + xlim(0.1, 1.1) +
+    ggplot2::theme(axis.text.x=element_blank(), axis.text.y=element_blank(),
+    #ggplot2::theme(axis.text.x=element_text(size = 12, face = "bold"), axis.text.y=element_blank(),      
+          axis.title.x=element_blank(), axis.title.y=element_blank(),
+          #axis.title.x=element_text(size = 15, face = "bold"), axis.title.y=element_blank(),
+          plot.title = element_text(hjust = 0.5, size = 25, face = "bold"), 
+          legend.position = "none") #+
+    #scale_fill_discrete(guide = guide_legend(reverse=TRUE)) +
+    #labs(fill = "Status", x = "Latent Time") 
+}
+```
+
+## Data directories
+
+```{r}
+# results directories
+results_dir <- file.path("..", "results", "timecourse")
+
+# results directories
+plots_dir <- file.path("..", "plots", "timecourse")
+```
+
+## Load D7911 latent time table
+
+```{r}
+latent_time <-
+  readr::read_csv(file.path(results_dir, 
+                            "timecourse-d7911-renamed-latent-time.csv.gz")) %>% 
+  dplyr::mutate(status = paste0(condition, "/", genotype))
+
+latent_time$cell_type <-  
+  factor(latent_time$cell_type, 
+         levels = rev(c("HPCs", "HPC - MK bias 2", "HPC - MK bias 1", 
+                      "HPC - Ery bias", "MK", "Ery", "Myeloid")))
+latent_time$status <-  
+  factor(latent_time$status, 
+         levels = rev(c("T21/wtGATA1", "T21/GATA1s", "Euploid/wtGATA1", 
+                      "Euploid/GATA1s")))
+
+latent_time$time <-  
+  factor(latent_time$time, 
+         levels = rev(c("D7", "D9", "D11")))
+```
+
+# Ridgeline plot HPCs
+```{r}
+p <- latent_time %>% dplyr::filter(cell_type == "HPCs") %>% 
+plot_latent_time("HPCs") 
+pdf(file = file.path(plots_dir, 
+                     "timecourse-d7911-umap-renamed-latent-time-HPCs.pdf"),
+    width = 10, height = 4)
+print(p)
+dev.off()
+print(p + theme(legend.position = "right"))
+```
+# Ridgeline plot HPC - MK bias 2
+```{r}
+p <- latent_time %>% dplyr::filter(cell_type == "HPC - MK bias 2") %>% 
+plot_latent_time("HPC - MK bias 2") 
+pdf(file = file.path(plots_dir, 
+                     "timecourse-d7911-umap-renamed-latent-time-HPC-MK-bias-2.pdf"),
+    width = 10, height = 4)
+print(p)
+dev.off()
+print(p + theme(legend.position = "right"))
+```
+# Ridgeline plot HPC - MK bias 1
+```{r}
+p <- latent_time %>% dplyr::filter(cell_type == "HPC - MK bias 1") %>% 
+plot_latent_time("HPC - MK bias 1") 
+pdf(file = file.path(plots_dir, 
+                     "timecourse-d7911-umap-renamed-latent-time-HPC-MK-bias-1.pdf"),
+    width = 10, height = 4)
+print(p)
+dev.off()
+print(p + theme(legend.position = "right"))
+```
+# Ridgeline plot HPC - Ery bais
+```{r}
+p <- latent_time %>% dplyr::filter(cell_type == "HPC - Ery bias") %>% 
+plot_latent_time("HPC - Ery bias") 
+pdf(file = file.path(plots_dir, 
+                     "timecourse-d7911-umap-renamed-latent-time-HPC-Ery-bais.pdf"),
+    width = 10, height = 4)
+print(p)
+dev.off()
+print(p + theme(legend.position = "right"))
+```
+# Ridgeline plot MK
+```{r}
+p <- latent_time %>% dplyr::filter(cell_type == "MK") %>% 
+plot_latent_time("MK") 
+pdf(file = file.path(plots_dir, 
+                     "timecourse-d7911-umap-renamed-latent-time-MK.pdf"),
+    width = 10, height = 4)
+print(p)
+dev.off()
+print(p + theme(legend.position = "right"))
+```
+
+
+# Ridgeline plot Ery
+```{r}
+p <- latent_time %>% dplyr::filter(cell_type == "Ery") %>% 
+plot_latent_time("Ery") 
+pdf(file = file.path(plots_dir, 
+                     "timecourse-d7911-umap-renamed-latent-time-Ery.pdf"),
+    width = 10, height = 4)
+print(p)
+dev.off()
+print(p + theme(legend.position = "right"))
+```
+
+
+# Ridgeline plot Myeloid
+```{r}
+p <- latent_time %>% dplyr::filter(cell_type == "Myeloid") %>% 
+plot_latent_time("Myeloid") 
+pdf(file = file.path(plots_dir, 
+                     "timecourse-d7911-umap-renamed-latent-time-Myeloid.pdf"),
+    width = 10, height = 4)
+print(p)
+dev.off()
+print(p + theme(legend.position = "right"))
+```
+
+## Session Info
+
+Record session info for reproducibility & provenance purposes.
+
+```{r sessioninfo}
+sessionInfo()
+```

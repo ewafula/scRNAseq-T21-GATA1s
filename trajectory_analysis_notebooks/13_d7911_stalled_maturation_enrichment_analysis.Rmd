@@ -1,0 +1,246 @@
+---
+title: "GSEA of diver genes associated with stalled lineage maturation unique to the T21/GATA1s"
+author: Eric Wafula
+date: 2024
+output:   
+  html_notebook: 
+    toc: true
+    toc_float: true
+---
+
+## setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+set.seed(123)
+```
+
+## Libraries
+
+```{r library}
+# Load libraries
+library(tidyverse)
+library(tximport)
+library(SummarizedExperiment)
+library(DESeq2)
+library(fgsea)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(AnnotationDbi)
+library(ggplot2)
+library(ggVennDiagram)
+library(RColorBrewer)
+library(pheatmap)
+library(msigdbr)
+library(scales)
+```
+
+## Functions
+
+```{r}
+# process dge results
+process_dge <- function(dge_results) {
+  dge_results <- dge_results %>%
+    dplyr::arrange(dplyr::desc(abs(log2FoldChange))) %>%
+    dplyr::distinct(gene_symbol, .keep_all = TRUE)
+  
+  # Pre-rank lists of fold change by sorting for GSEA 
+  lfc_vector <- dge_results |>
+    dplyr::pull(log2FoldChange, name = gene_symbol)
+  lfc_vector <- sort(lfc_vector, decreasing = TRUE)
+  return(lfc_vector)
+}
+
+
+# run gsea
+run_gsea <- function(lfc_vector, gene_set) {
+  gsea_results <- fgsea::fgsea(pathways = gene_set, stats = lfc_vector, 
+                               minSize = 3, maxSize = 500, nPermSimple = 100000) %>% 
+    tibble::as_tibble() %>% 
+    dplyr::mutate(pathway = gsub("HALLMARK_|REACTOME_|GOBP_", "", pathway)) %>% 
+    dplyr::mutate(pathway = gsub("_", " ", pathway)) %>%
+    dplyr::arrange(dplyr::desc(size))
+  gsea_results$pathway <- factor(gsea_results$pathway, levels = gsea_results$pathway)
+  return(gsea_results)
+}
+
+
+# plot enriched gsea functional pathways
+plot_gsea <- function(gsea_results) {
+  gsea_results %>% mutate(pathway = fct_reorder(pathway, size)) %>% 
+    ggplot(aes(x=size, y=pathway, size=size, color=NES)) + 
+    geom_point(alpha = 1.5) + 
+    scale_y_discrete(labels = scales::label_wrap(50)) +
+    scale_colour_gradient2(low = "blue3", mid = "white", high = "red3") + #, space = "Lab") +
+    theme_classic() +
+    theme(axis.title.y = element_blank(), axis.text.y = element_text(size = 8)) +
+    guides(size  = guide_legend(order = 1), alpha = guide_legend(order = 2))
+    #scale_size(range = c(2, 8))
+}
+```
+
+## Directories
+
+```{r directories, live = TRUE}
+# results directory 
+results_dir <- file.path("results", "pub")
+```
+
+## MSigDB Hallmark dataset 
+
+Retrieve MsigDB Hallmark, BP Ontology, and Reactome gene sets
+```{r msigdb}
+# Hallmark gene sets
+hs_hallmark <- msigdbr::msigdbr(species = "Homo sapiens", category = "H") %>% 
+  split(x = .$gene_symbol, f = .$gs_name)
+```
+
+#### Erythroid lineage
+
+```{r}
+# load driver gene
+driver_genes <- 
+  read_lines(file.path(results_dir, 
+                       "timecourse-d7911-renamed-stalled-erythroid-maturation-DEGs.txt"))
+# DGE results 
+dge_results <- 
+  readr::read_tsv(file.path(results_dir, 
+                            "timecourse-d7911-renamed-mast-zlmCond-HPC-Ery-bias-DEGs.tsv.gz")) %>% 
+  dplyr::filter(primerid %in% driver_genes) %>% 
+  dplyr::select(primerid , `conditionT21:genotypeGATA1s`) %>% 
+  dplyr::rename(gene_symbol = primerid, log2FoldChange =`conditionT21:genotypeGATA1s`)
+
+# run gsea
+gsea_results <- run_gsea(process_dge(dge_results), hs_hallmark)
+
+# save gsea results to file
+gsea_results <- gsea_results %>% 
+  dplyr::mutate(leadingEdge = sapply(leadingEdge, 
+                                     function(x){paste(unlist(x), collapse = ",")})) 
+gsea_results %>% 
+  readr::write_tsv(file.path(results_dir,
+                             "timecourse-d7911-renamed-stalled-erythroid-maturation-hallmark-GSEA.tsv.gz"))
+
+# display table
+gsea_results <- gsea_results %>%
+  dplyr::slice_max(size, n = 15)
+gsea_results
+
+# gsea dotplot - top 15 enriched functions
+plot_gsea(gsea_results)
+```
+
+#### Megakaryocyte lineage
+
+```{r}
+# load driver gene
+driver_genes <- 
+  read_lines(file.path(results_dir, 
+                       "timecourse-d7911-renamed-stalled-megakaroid-maturation-DEGs.txt"))
+# DGE results 
+dge_results <- 
+  readr::read_tsv(file.path(results_dir, 
+                            "timecourse-d7911-renamed-mast-zlmCond-HPC-MK-bias-DEGs.tsv.gz")) %>% 
+  dplyr::filter(primerid %in% driver_genes) %>% 
+  dplyr::select(primerid , `conditionT21:genotypeGATA1s`) %>% 
+  dplyr::rename(gene_symbol = primerid, log2FoldChange =`conditionT21:genotypeGATA1s`)
+
+# run gsea
+gsea_results <- run_gsea(process_dge(dge_results), hs_hallmark)
+
+# save gsea results to file
+gsea_results <- gsea_results %>% 
+  dplyr::mutate(leadingEdge = sapply(leadingEdge, 
+                                     function(x){paste(unlist(x), collapse = ",")})) 
+gsea_results %>% 
+  readr::write_tsv(file.path(results_dir,
+                             "timecourse-d7911-renamed-stalled-Megakaryocyte-maturation-hallmark-GSEA.tsv.gz"))
+
+# display table
+gsea_results <- gsea_results %>%
+  dplyr::slice_max(size, n = 15)
+gsea_results
+
+# gsea dotplot - top 15 enriched functions
+plot_gsea(gsea_results)
+```
+
+
+#### Myelod1 lineage
+
+```{r}
+# load driver gene
+driver_genes <- 
+  read_lines(file.path(results_dir, 
+                       "timecourse-d7911-renamed-stalled-myeloid1-maturation-DEGs.txt"))
+# DGE results 
+dge_results <- 
+  readr::read_tsv(file.path(results_dir, 
+                            "timecourse-d7911-renamed-mast-zlmCond-HPCs-DEGs.tsv.gz")) %>% 
+  dplyr::filter(primerid %in% driver_genes) %>% 
+  dplyr::select(primerid , `conditionT21:genotypeGATA1s`) %>% 
+  dplyr::rename(gene_symbol = primerid, log2FoldChange =`conditionT21:genotypeGATA1s`)
+
+# run gsea
+gsea_results <- run_gsea(process_dge(dge_results), hs_hallmark)
+
+# save gsea results to file
+gsea_results <- gsea_results %>% 
+  dplyr::mutate(leadingEdge = sapply(leadingEdge, 
+                                     function(x){paste(unlist(x), collapse = ",")})) 
+gsea_results %>% 
+  readr::write_tsv(file.path(results_dir,
+                             "timecourse-d7911-renamed-stalled-myeloid1-maturation-hallmark-GSEA.tsv.gz"))
+
+# display table
+gsea_results <- gsea_results %>%
+  dplyr::slice_max(size, n = 15)
+gsea_results
+
+# gsea dotplot - top 15 enriched functions
+plot_gsea(gsea_results)
+```
+
+
+#### Myelod1 lineage
+
+```{r}
+# load driver gene
+driver_genes <- 
+  read_lines(file.path(results_dir, 
+                       "timecourse-d7911-renamed-stalled-myeloid2-maturation-DEGs.txt"))
+# DGE results 
+dge_results <- 
+  readr::read_tsv(file.path(results_dir, 
+                            "timecourse-d7911-renamed-pub-mast-zlmCond-HPCs-DEGs.tsv.gz")) %>% 
+  dplyr::filter(primerid %in% driver_genes) %>% 
+  dplyr::select(primerid , `conditionT21:genotypeGATA1s`) %>% 
+  dplyr::rename(gene_symbol = primerid, log2FoldChange =`conditionT21:genotypeGATA1s`)
+
+# run gsea
+gsea_results <- run_gsea(process_dge(dge_results), hs_hallmark)
+
+# save gsea results to file
+gsea_results <- gsea_results %>% 
+  dplyr::mutate(leadingEdge = sapply(leadingEdge, 
+                                     function(x){paste(unlist(x), collapse = ",")})) 
+gsea_results %>% 
+  readr::write_tsv(file.path(results_dir,
+                             "timecourse-d7911-renamed-stalled-myeloid2-maturation-hallmark-GSEA.tsv.gz"))
+
+# display table
+gsea_results <- gsea_results %>%
+  dplyr::slice_max(size, n = 15)
+gsea_results
+
+# gsea dotplot - top 15 enriched functions
+plot_gsea(gsea_results)
+```
+
+## Session Info
+
+Record session info for reproducibility & provenance purposes.
+
+```{r sessioninfo}
+sessionInfo()
+```
