@@ -12,6 +12,7 @@ Trisomy 21 (T21) is associated with baseline erythrocytosis, thrombocytopenia, n
 This illustration shows the directory structure of the analysis workflow, which can be used to reproduce the study's analysis results in the publication.
 
 Please note that the software packages and code implementations may change when using this archived repository. You may need to update the code to be compatible with the latest versions of the software packages.
+The 10x scRNA-Seq sequencing data, external reference Rdata, and the analysis Seurat objects have not been uploaded to the repository due to file size limitations. 
 ```
 .
 |-- 01-run-soupx.R
